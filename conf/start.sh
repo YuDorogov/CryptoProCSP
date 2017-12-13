@@ -1,5 +1,5 @@
 #!/bin/bash
-
+certname='srvtest'
 stop_requested=false
 trap "stop_requested=true" SIGTERM SIGINT
 
@@ -45,16 +45,22 @@ alien -kci cprocsp-pki-2.0.0-amd64-cades.rpm && \
 /opt/cprocsp/sbin/amd64/cpconfig -hardware reader -add HDIMAGE store && \
 
 # Скачивание корневых и УЦ сертификатов
-php5.6 getRootAndCACerts.php && \
+#php5.6 getRootAndCACerts.php && \
 
 # Установка коневых сертификатов
-find ./root_certs/ -name "*.cer" -exec /opt/cprocsp/bin/amd64/certmgr -inst -store uroot -file {} \; > root.log && \
+/opt/cprocsp/bin/amd64/certmgr -inst -store uMy -cont '\\.\HDIMAGE\srvtest' -provtype 75
+/opt/cprocsp/bin/amd64/certmgr -export -cert -dn "CN=${certname}" -dest "/etc/nginx/${certname}.cer" || exit 1
+openssl x509 -inform DER -in "/etc/nginx/${certname}.cer" -out "/etc/nginx/${certname}.pem" || exit 1
+openssl req -x509 -newkey rsa:2048 -keyout /etc/nginx/${certname}RSA.key -nodes -out /etc/nginx/srvtestRSA.pem -subj '/CN=${certname}RSA/C=RU' || exit 1
+openssl rsa -in /etc/nginx/srvtestRSA.key -out /etc/nginx/${certname}RSA.key
 
-# Установка УЦ сертификатов
-find ./ca_certs/ -name "*.cer" -exec /opt/cprocsp/bin/amd64/certmgr -inst -store uroot -file {} \; > ca.log && \
+# Загрузка файла конфигурации:
+wget --no-check-certificate "https://raw.githubusercontent.com/fullincome/scripts/master/nginx-gost/nginx.conf" || exit 1
 
-# Запуск php-web сервер для ответов по API
-sh -c "nohup php -S 0.0.0.0:80 -t /www &" && \
+# Установка конфигурации nginx:
+sed -r "s/srvtest/${certname}/g" nginx.conf > nginx_tmp.conf
+rm nginx.conf
+mv ./nginx_tmp.conf /etc/nginx/nginx.conf || exit 1
 
 # Ждём SIGTERM или SIGINT
 wait_signal
@@ -74,4 +80,4 @@ then
 fi
 
 # Ждём завершения процессов по их названию
-wait_exit "cryptsrv php"
+wait_exit "cryptsrv"
