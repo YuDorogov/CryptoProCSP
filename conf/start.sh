@@ -61,7 +61,7 @@ wget --no-check-certificate "https://raw.githubusercontent.com/fullincome/script
 sed -r "s/srvtest/${certname}/g" nginx.conf > nginx_tmp.conf
 rm nginx.conf
 mv ./nginx_tmp.conf /etc/nginx/nginx.conf || exit 1
-
+nginx
 # Ждём SIGTERM или SIGINT
 wait_signal
 
